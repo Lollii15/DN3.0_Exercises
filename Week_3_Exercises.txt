@@ -1,0 +1,1158 @@
+Exercise:1
+Configure the H2 database connection:
+properties:
+spring.datasource.url=jdbc:h2:mem:testdb
+spring.datasource.driverClassName=org.h2.Driver
+spring.datasource.username=sa
+spring.datasource.password=password
+spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+spring.h2.console.enabled=true
+Exercise:2
+Create the Employee Entity:
+java
+package com.example.employeemanagementsystem.entity;
+
+import javax.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "employees")
+@Data
+@NoArgsConstructor
+public class Employee {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @Column(name = "email", nullable = false, unique = true)
+    private String email;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id")
+    private Department department;
+
+    public Employee(String name, String email, Department department) {
+        this.name = name;
+        this.email = email;
+        this.department = department;
+    }
+}
+Create the Department Entity:
+java
+package com.example.employeemanagementsystem.entity;
+
+import javax.persistence.*;
+import java.util.List;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "departments")
+@Data
+@NoArgsConstructor
+public class Department {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @OneToMany(mappedBy = "department", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Employee> employees;
+
+    public Department(String name) {
+        this.name = name;
+    }
+}
+ Final Structure:
+css
+src
+└── main
+    └── java
+        └── com
+            └── example
+                └── employeemanagementsystem
+                    ├── entity
+                    │   ├── Employee.java
+                    │   └── Department.java
+                    └── ...
+Exercise:3
+Create the EmployeeRepository
+Create the Repository Interface:
+java
+package com.example.employeemanagementsystem.repository;
+
+import com.example.employeemanagementsystem.entity.Employee;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
+
+public interface EmployeeRepository extends JpaRepository<Employee, Long> {
+
+    // Derived query method to find employees by name
+    List<Employee> findByName(String name);
+
+    // Derived query method to find employees by department id
+    List<Employee> findByDepartmentId(Long departmentId);
+}
+Create the DepartmentRepository
+Create the Repository Interface:
+java
+package com.example.employeemanagementsystem.repository;
+
+import com.example.employeemanagementsystem.entity.Department;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface DepartmentRepository extends JpaRepository<Department, Long> {
+
+    // Derived query method to find department by name
+    Department findByName(String name);
+}
+Using the Repositories:
+java
+package com.example.employeemanagementsystem.service;
+
+import com.example.employeemanagementsystem.entity.Employee;
+import com.example.employeemanagementsystem.repository.EmployeeRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class EmployeeService {
+
+    @Autowired
+    private EmployeeRepository employeeRepository;
+
+    public List<Employee> getAllEmployees() {
+        return employeeRepository.findAll();
+    }
+
+    public Employee saveEmployee(Employee employee) {
+        return employeeRepository.save(employee);
+    }
+
+    public List<Employee> findEmployeesByName(String name) {
+        return employeeRepository.findByName(name);
+    }
+    
+    // Other service methods...
+}
+Exercise:4
+Implementing the Service Layer:
+EmployeeService:
+java
+package com.example.employeemanagementsystem.service;
+
+import com.example.employeemanagementsystem.entity.Employee;
+import com.example.employeemanagementsystem.repository.EmployeeRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class EmployeeService {
+
+    @Autowired
+    private EmployeeRepository employeeRepository;
+
+    public List<Employee> getAllEmployees() {
+        return employeeRepository.findAll();
+    }
+
+    public Optional<Employee> getEmployeeById(Long id) {
+        return employeeRepository.findById(id);
+    }
+
+    public Employee createEmployee(Employee employee) {
+        return employeeRepository.save(employee);
+    }
+
+    public Employee updateEmployee(Long id, Employee employeeDetails) {
+        Employee employee = employeeRepository.findById(id).orElseThrow(() -> new RuntimeException("Employee not found"));
+        employee.setName(employeeDetails.getName());
+        employee.setEmail(employeeDetails.getEmail());
+        employee.setDepartment(employeeDetails.getDepartment());
+        return employeeRepository.save(employee);
+    }
+
+    public void deleteEmployee(Long id) {
+        employeeRepository.deleteById(id);
+    }
+}
+DepartmentService:
+java
+package com.example.employeemanagementsystem.service;
+
+import com.example.employeemanagementsystem.entity.Department;
+import com.example.employeemanagementsystem.repository.DepartmentRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class DepartmentService {
+
+    @Autowired
+    private DepartmentRepository departmentRepository;
+
+    public List<Department> getAllDepartments() {
+        return departmentRepository.findAll();
+    }
+
+    public Optional<Department> getDepartmentById(Long id) {
+        return departmentRepository.findById(id);
+    }
+
+    public Department createDepartment(Department department) {
+        return departmentRepository.save(department);
+    }
+
+    public Department updateDepartment(Long id, Department departmentDetails) {
+        Department department = departmentRepository.findById(id).orElseThrow(() -> new RuntimeException("Department not found"));
+        department.setName(departmentDetails.getName());
+        return departmentRepository.save(department);
+    }
+
+    public void deleteDepartment(Long id) {
+        departmentRepository.deleteById(id);
+    }
+}
+Implementing RESTful Endpoints:
+EmployeeController:
+java
+package com.example.employeemanagementsystem.controller;
+
+import com.example.employeemanagementsystem.entity.Employee;
+import com.example.employeemanagementsystem.service.EmployeeService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/employees")
+public class EmployeeController {
+
+    @Autowired
+    private EmployeeService employeeService;
+
+    @GetMapping
+    public List<Employee> getAllEmployees() {
+        return employeeService.getAllEmployees();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Employee> getEmployeeById(@PathVariable Long id) {
+        return employeeService.getEmployeeById(id)
+            .map(ResponseEntity::ok)
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping
+    public Employee createEmployee(@RequestBody Employee employee) {
+        return employeeService.createEmployee(employee);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Employee> updateEmployee(@PathVariable Long id, @RequestBody Employee employeeDetails) {
+        return ResponseEntity.ok(employeeService.updateEmployee(id, employeeDetails));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteEmployee(@PathVariable Long id) {
+        employeeService.deleteEmployee(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+DepartmentController:
+java
+package com.example.employeemanagementsystem.controller;
+
+import com.example.employeemanagementsystem.entity.Department;
+import com.example.employeemanagementsystem.service.DepartmentService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/departments")
+public class DepartmentController {
+
+    @Autowired
+    private DepartmentService departmentService;
+
+    @GetMapping
+    public List<Department> getAllDepartments() {
+        return departmentService.getAllDepartments();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Department> getDepartmentById(@PathVariable Long id) {
+        return departmentService.getDepartmentById(id)
+            .map(ResponseEntity::ok)
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping
+    public Department createDepartment(@RequestBody Department department) {
+        return departmentService.createDepartment(department);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Department> updateDepartment(@PathVariable Long id, @RequestBody Department departmentDetails) {
+        return ResponseEntity.ok(departmentService.updateDepartment(id, departmentDetails));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteDepartment(@PathVariable Long id) {
+        departmentService.deleteDepartment(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+Final Structure:
+css
+src
+└── main
+    └── java
+        └── com
+            └── example
+                └── employeemanagementsystem
+                    ├── controller
+                    │   ├── EmployeeController.java
+                    │   └── DepartmentController.java
+                    ├── entity
+                    │   ├── Employee.java
+                    │   └── Department.java
+                    ├── repository
+                    │   ├── EmployeeRepository.java
+                    │   └── DepartmentRepository.java
+                    └── service
+                        ├── EmployeeService.java
+                        └── DepartmentService.java
+Exercise:5
+Find employees by department name::
+java
+package com.example.employeemanagementsystem.repository;
+
+import com.example.employeemanagementsystem.entity.Employee;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface EmployeeRepository extends JpaRepository<Employee, Long> {
+
+    // Find employees by department name
+    List<Employee> findByDepartmentName(String departmentName);
+}
+Find departments that contain a specific keyword in their name::
+java
+package com.example.employeemanagementsystem.repository;
+
+import com.example.employeemanagementsystem.entity.Department;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface DepartmentRepository extends JpaRepository<Department, Long> {
+
+    // Find departments with a name containing a specific keyword
+    List<Department> findByNameContaining(String keyword);
+}
+Find employees by email domain:
+java
+package com.example.employeemanagementsystem.repository;
+
+import com.example.employeemanagementsystem.entity.Employee;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+
+public interface EmployeeRepository extends JpaRepository<Employee, Long> {
+
+    // Custom query to find employees by email domain
+    @Query("SELECT e FROM Employee e WHERE e.email LIKE %:domain")
+    List<Employee> findByEmailDomain(@Param("domain") String domain);
+}
+Find departments with more than a certain number of employees::
+java
+package com.example.employeemanagementsystem.repository;
+
+import com.example.employeemanagementsystem.entity.Department;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import java.util.List;
+
+public interface DepartmentRepository extends JpaRepository<Department, Long> {
+
+    // Custom query to find departments with more than a certain number of employees
+    @Query("SELECT d FROM Department d WHERE SIZE(d.employees) > :count")
+    List<Department> findDepartmentsWithMoreThanEmployees(int count);
+}
+Define Named Queries in the Employee entity:
+java
+package com.example.employeemanagementsystem.entity;
+
+import javax.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.util.List;
+
+@Entity
+@Table(name = "employees")
+@Data
+@NoArgsConstructor
+@NamedQueries({
+    @NamedQuery(name = "Employee.findByNameAndEmail",
+                query = "SELECT e FROM Employee e WHERE e.name = :name AND e.email = :email"),
+    @NamedQuery(name = "Employee.findAllByDepartmentName",
+                query = "SELECT e FROM Employee e WHERE e.department.name = :departmentName")
+})
+public class Employee {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @Column(name = "email", nullable = false, unique = true)
+    private String email;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id")
+    private Department department;
+
+    // Constructor, getters, setters, etc.
+}
+Using Named Queries in the Repository:
+java
+package com.example.employeemanagementsystem.repository;
+
+import com.example.employeemanagementsystem.entity.Employee;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface EmployeeRepository extends JpaRepository<Employee, Long> {
+
+    // Using the named query to find employees by name and email
+    List<Employee> findByNameAndEmail(String name, String email);
+
+    // Using the named query to find all employees in a department by department name
+    List<Employee> findAllByDepartmentName(String departmentName);
+}
+Exercise:6
+Modify the EmployeeService to Support Pagination:
+java
+package com.example.employeemanagementsystem.service;
+
+import com.example.employeemanagementsystem.entity.Employee;
+import com.example.employeemanagementsystem.repository.EmployeeRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+
+import java.util.Optional;
+
+@Service
+public class EmployeeService {
+
+    @Autowired
+    private EmployeeRepository employeeRepository;
+
+    // Method to get paginated list of employees
+    public Page<Employee> getEmployees(Pageable pageable) {
+        return employeeRepository.findAll(pageable);
+    }
+
+    // Other methods remain unchanged...
+}
+Update the EmployeeController to Support Pagination:
+java
+package com.example.employeemanagementsystem.controller;
+
+import com.example.employeemanagementsystem.entity.Employee;
+import com.example.employeemanagementsystem.service.EmployeeService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/employees")
+public class EmployeeController {
+
+    @Autowired
+    private EmployeeService employeeService;
+
+    @GetMapping
+    public Page<Employee> getAllEmployees(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir) {
+
+        Pageable pageable = PageRequest.of(page, size, sortDir.equalsIgnoreCase("desc") ? 
+                org.springframework.data.domain.Sort.by(sortBy).descending() : 
+                org.springframework.data.domain.Sort.by(sortBy).ascending());
+                
+        return employeeService.getEmployees(pageable);
+    }
+
+    // Other methods remain unchanged...
+}
+Exercise:7
+Create or Update the Configuration Class:
+java
+package com.example.employeemanagementsystem.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+
+@Configuration
+@EnableJpaAuditing
+public class JpaConfig {
+    // Configuration class to enable JPA Auditing
+}
+Update Employee Entity:
+java
+package com.example.employeemanagementsystem.entity;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.annotation.LastModifiedDate;
+
+import javax.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "employees")
+@Data
+@NoArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
+public class Employee {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @Column(name = "email", nullable = false, unique = true)
+    private String email;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id")
+    private Department department;
+
+    @CreatedBy
+    @Column(name = "created_by")
+    private String createdBy;
+
+    @CreatedDate
+    @Column(name = "created_date")
+    private LocalDateTime createdDate;
+
+    @LastModifiedBy
+    @Column(name = "last_modified_by")
+    private String lastModifiedBy;
+
+    @LastModifiedDate
+    @Column(name = "last_modified_date")
+    private LocalDateTime lastModifiedDate;
+
+    // Constructor, getters, setters, etc.
+}
+Update Department Entity:
+java
+package com.example.employeemanagementsystem.entity;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.annotation.LastModifiedDate;
+
+import javax.persistence.*;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Entity
+@Table(name = "departments")
+@Data
+@NoArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
+public class Department {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @OneToMany(mappedBy = "department")
+    private List<Employee> employees;
+
+    @CreatedBy
+    @Column(name = "created_by")
+    private String createdBy;
+
+    @CreatedDate
+    @Column(name = "created_date")
+    private LocalDateTime createdDate;
+
+    @LastModifiedBy
+    @Column(name = "last_modified_by")
+    private String lastModifiedBy;
+
+    @LastModifiedDate
+    @Column(name = "last_modified_date")
+    private LocalDateTime lastModifiedDate;
+
+    // Constructor, getters, setters, etc.
+}
+Implement AuditorAware Bean:
+java
+package com.example.employeemanagementsystem.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.domain.AuditorAware;
+import org.springframework.data.jpa.domain.AuditorAwareImpl;
+
+@Configuration
+public class AuditorConfig {
+
+    @Bean
+    public AuditorAware<String> auditorProvider() {
+        // Implement your custom logic to get the current user
+        return new AuditorAwareImpl();
+    }
+}
+Implement AuditorAware Interface:
+java
+package com.example.employeemanagementsystem.config;
+
+import org.springframework.data.domain.AuditorAware;
+
+import java.util.Optional;
+
+public class AuditorAwareImpl implements AuditorAware<String> {
+
+    @Override
+    public Optional<String> getCurrentAuditor() {
+        // Replace with logic to get the current user
+        return Optional.of("admin"); // Example fixed user, replace with actual user context
+    }
+}
+Exercise:8
+Define Interface-Based Projections
+Employee Projection:
+java
+package com.example.employeemanagementsystem.projection;
+
+public interface EmployeeProjection {
+    
+    Long getId();
+    String getName();
+    String getEmail();
+}
+Department Projection:
+java
+package com.example.employeemanagementsystem.projection;
+
+public interface DepartmentProjection {
+    
+    Long getId();
+    String getName();
+}
+Employee Repository:
+package com.example.employeemanagementsystem.repository;
+
+import com.example.employeemanagementsystem.entity.Employee;
+import com.example.employeemanagementsystem.projection.EmployeeProjection;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface EmployeeRepository extends JpaRepository<Employee, Long> {
+    
+    // Method to fetch specific data using projection
+    List<EmployeeProjection> findAllProjectedBy();
+}
+Department Repository:
+java
+package com.example.employeemanagementsystem.repository;
+
+import com.example.employeemanagementsystem.entity.Department;
+import com.example.employeemanagementsystem.projection.DepartmentProjection;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface DepartmentRepository extends JpaRepository<Department, Long> {
+
+    // Method to fetch specific data using projection
+    List<DepartmentProjection> findAllProjectedBy();
+}
+Define Class-Based Projections:
+java
+package com.example.employeemanagementsystem.projection;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+@Getter
+@AllArgsConstructor
+public class EmployeeProjectionClass {
+
+    private Long id;
+    private String name;
+    private String email;
+}
+Department Projection Class:
+java
+package com.example.employeemanagementsystem.projection;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+@Getter
+@AllArgsConstructor
+public class DepartmentProjectionClass {
+
+    private Long id;
+    private String name;
+}
+Employee Repository:
+java
+package com.example.employeemanagementsystem.repository;
+
+import com.example.employeemanagementsystem.entity.Employee;
+import com.example.employeemanagementsystem.projection.EmployeeProjectionClass;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import java.util.List;
+
+public interface EmployeeRepository extends JpaRepository<Employee, Long> {
+    
+    // Custom query to fetch data using projection class
+    @Query("SELECT new com.example.employeemanagementsystem.projection.EmployeeProjectionClass(e.id, e.name, e.email) FROM Employee e")
+    List<EmployeeProjectionClass> findEmployeeProjections();
+}
+Department Repository:
+java
+package com.example.employeemanagementsystem.repository;
+
+import com.example.employeemanagementsystem.entity.Department;
+import com.example.employeemanagementsystem.projection.DepartmentProjectionClass;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import java.util.List;
+
+public interface DepartmentRepository extends JpaRepository<Department, Long> {
+
+    // Custom query to fetch data using projection class
+    @Query("SELECT new com.example.employeemanagementsystem.projection.DepartmentProjectionClass(d.id, d.name) FROM Department d")
+    List<DepartmentProjectionClass> findDepartmentProjections();
+}
+Define Projections Using @Value
+java
+package com.example.employeemanagementsystem.projection;
+
+import org.springframework.beans.factory.annotation.Value;
+
+public interface EmployeeValueProjection {
+
+    @Value("#{target.id} #{target.name} #{target.email}")
+    String getEmployeeInfo();
+}
+package com.example.employeemanagementsystem.projection;
+
+import org.springframework.beans.factory.annotation.Value;
+
+public interface DepartmentValueProjection {
+
+    @Value("#{target.id} #{target.name}")
+    String getDepartmentInfo();
+}
+Use @Value Projections in Repository Methods
+java
+package com.example.employeemanagementsystem.repository;
+
+import com.example.employeemanagementsystem.projection.EmployeeValueProjection;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface EmployeeRepository extends JpaRepository<Employee, Long> {
+
+    // Method to fetch data using @Value projection
+    List<EmployeeValueProjection> findEmployeeValueProjections();
+}
+package com.example.employeemanagementsystem.repository;
+
+import com.example.employeemanagementsystem.projection.DepartmentValueProjection;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface DepartmentRepository extends JpaRepository<Department, Long> {
+
+    // Method to fetch data using @Value projection
+    List<DepartmentValueProjection> findDepartmentValueProjections();
+}
+Exercise:9
+Basic Data Source Configuration:
+properties 
+# application.properties
+spring.datasource.url=jdbc:h2:mem:testdb
+spring.datasource.driver-class-name=org.h2.Driver
+spring.datasource.username=sa
+spring.datasource.password=password
+spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+External Configuration Using application.properties
+properties
+# application.properties
+spring.datasource.url=jdbc:mysql://localhost:3306/primarydb
+spring.datasource.username=root
+spring.datasource.password=rootpassword
+
+# Secondary data source configuration
+spring.secondary-datasource.url=jdbc:mysql://localhost:3306/secondarydb
+spring.secondary-datasource.username=root
+spring.secondary-datasource.password=rootpassword
+yaml
+# application.yml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/primarydb
+    username: root
+    password: rootpassword
+
+  secondary-datasource:
+    url: jdbc:mysql://localhost:3306/secondarydb
+    username: root
+    password: rootpassword
+Define Configuration Classes for Data Sources
+Primary Data Source Configuration:
+java
+package com.example.employeemanagementsystem.config;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+
+import javax.persistence.EntityManagerFactory;
+import javax.sql.DataSource;
+
+@Configuration
+@EnableJpaRepositories(
+    basePackages = "com.example.employeemanagementsystem.repository.primary",
+    entityManagerFactoryRef = "primaryEntityManagerFactory",
+    transactionManagerRef = "primaryTransactionManager"
+)
+public class PrimaryDataSourceConfig {
+
+    @Value("${spring.datasource.url}")
+    private String url;
+
+    @Value("${spring.datasource.username}")
+    private String username;
+
+    @Value("${spring.datasource.password}")
+    private String password;
+
+    @Bean
+    @Primary
+    public DataSource primaryDataSource() {
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setUrl(url);
+        dataSource.setUsername(username);
+        dataSource.setPassword(password);
+        return dataSource;
+    }
+
+    @Bean
+    @Primary
+    public EntityManagerFactory primaryEntityManagerFactory() {
+        // Implement EntityManagerFactory setup
+    }
+
+    @Bean
+    @Primary
+    public PlatformTransactionManager primaryTransactionManager() {
+        // Implement TransactionManager setup
+    }
+}
+Secondary Data Source Configuration:
+java
+package com.example.employeemanagementsystem.config;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+
+import javax.persistence.EntityManagerFactory;
+import javax.sql.DataSource;
+
+@Configuration
+@EnableJpaRepositories(
+    basePackages = "com.example.employeemanagementsystem.repository.secondary",
+    entityManagerFactoryRef = "secondaryEntityManagerFactory",
+    transactionManagerRef = "secondaryTransactionManager"
+)
+public class SecondaryDataSourceConfig {
+
+    @Value("${spring.secondary-datasource.url}")
+    private String url;
+
+    @Value("${spring.secondary-datasource.username}")
+    private String username;
+
+    @Value("${spring.secondary-datasource.password}")
+    private String password;
+
+    @Bean
+    public DataSource secondaryDataSource() {
+        DriverManagerDataSource dataSource = new DriverManagerDataSource();
+        dataSource.setUrl(url);
+        dataSource.setUsername(username);
+        dataSource.setPassword(password);
+        return dataSource;
+    }
+
+    @Bean
+    public EntityManagerFactory secondaryEntityManagerFactory() {
+        // Implement EntityManagerFactory setup
+    }
+
+    @Bean
+    public PlatformTransactionManager secondaryTransactionManager() {
+        // Implement TransactionManager setup
+    }
+}
+Primary Repositories:
+package com.example.employeemanagementsystem.repository.primary;
+
+import com.example.employeemanagementsystem.entity.Employee;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface EmployeeRepository extends JpaRepository<Employee, Long> {
+    // Define repository methods here
+}
+Secondary Repositories:
+package com.example.employeemanagementsystem.repository.secondary;
+
+import com.example.employeemanagementsystem.entity.Department;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface DepartmentRepository extends JpaRepository<Department, Long> {
+    // Define repository methods here
+}
+Exercise:10
+Hibernate-Specific Annotations:
+java
+import org.hibernate.annotations.Type;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+
+@Entity
+public class Employee {
+
+    @Id
+    private Long id;
+
+    @Column(name = "name")
+    private String name;
+
+    @Type(type = "string")
+    @Column(name = "email")
+    private String email;
+
+    // Additional fields and methods
+}
+Using @SQLInsert and @SQLUpdate Annotations
+java
+import org.hibernate.annotations.SQLInsert;
+import org.hibernate.annotations.SQLUpdate;
+
+@Entity
+@SQLInsert(sql = "INSERT INTO employee (id, name, email) VALUES (?, ?, ?)")
+@SQLUpdate(sql = "UPDATE employee SET name = ?, email = ? WHERE id = ?")
+public class Employee {
+
+    @Id
+    private Long id;
+
+    @Column(name = "name")
+    private String name;
+
+    @Column(name = "email")
+    private String email;
+
+    // Additional fields and methods
+}
+Using @Generated Annotation
+java
+import javax.persistence.*;
+import org.hibernate.annotations.GenericGenerator;
+
+@Entity
+public class Employee {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO, generator = "uuid2")
+    @GenericGenerator(name = "uuid2", strategy = "uuid2")
+    private String id;
+
+    @Column(name = "name")
+    private String name;
+
+    @Column(name = "email")
+    private String email;
+
+    // Additional fields and methods
+}
+Set Hibernate Dialect:
+properties
+# application.properties
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL8Dialect
+spring.jpa.properties.hibernate.hbm2ddl.auto=update
+spring.jpa.properties.hibernate.show_sql=true
+spring.jpa.properties.hibernate.format_sql=true
+Alternatively, using application.yml:
+yaml
+# application.yml
+spring:
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        hbm2ddl:
+          auto: update
+        show_sql: true
+        format_sql: true
+Optimize Hibernate Performance:
+properties
+# application.properties
+spring.jpa.properties.hibernate.jdbc.batch_size=20
+spring.jpa.properties.hibernate.order_inserts=true
+spring.jpa.properties.hibernate.order_updates=true
+spring.jpa.properties.hibernate.jdbc.batch_versioned_data=true
+Configure Batch Processing
+Enable Batch Processing:
+properties
+# application.properties
+spring.jpa.properties.hibernate.jdbc.batch_size=30
+spring.jpa.properties.hibernate.order_inserts=true
+spring.jpa.properties.hibernate.order_updates=true
+Implement Batch Processing
+Using Session for Batch Processing:
+java
+import org.hibernate.Session;
+import org.hibernate.Transaction;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import javax.transaction.Transactional;
+
+@Service
+public class EmployeeService {
+
+    @Autowired
+    private SessionFactory sessionFactory;
+
+    @Transactional
+    public void batchInsertEmployees(List<Employee> employees) {
+        Session session = sessionFactory.getCurrentSession();
+        Transaction transaction = session.beginTransaction();
+
+        for (int i = 0; i < employees.size(); i++) {
+            session.save(employees.get(i));
+            if (i % 30 == 0) { // Batch size
+                session.flush();
+                session.clear();
+            }
+        }
+
+        transaction.commit();
+    }
+}
+Using Spring Data JPA for Batch Processing:
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.CrudRepository;
+import org.springframework.transaction.annotation.Transactional;
+
+public interface EmployeeRepository extends CrudRepository<Employee, Long> {
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE Employee e SET e.name = ?1 WHERE e.id IN ?2")
+    void updateEmployeeNames(String name, List<Long> ids);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
