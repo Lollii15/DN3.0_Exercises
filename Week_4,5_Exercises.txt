@@ -1,0 +1,359 @@
+
+
+Exercise 1: Setting Up the Project
+bash
+
+mvn archetype:generate -DgroupId=com.bookstore -DartifactId=BookstoreAPI -DarchetypeArtifactId=maven-archetype-webapp -DinteractiveMode=false
+1.1. BookstoreAPIApplication.java
+java
+
+package com.bookstore;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class BookstoreAPIApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(BookstoreAPIApplication.class, args);
+    }
+}
+Exercise 2: Creating Basic REST Controllers
+2.1. BookController.java
+java
+
+package com.bookstore.controller;
+
+import com.bookstore.model.Book;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@RestController
+@RequestMapping("/books")
+public class BookController {
+
+    private List<Book> bookList = new ArrayList<>();
+
+    @GetMapping
+    public List<Book> getAllBooks() {
+        return bookList;
+    }
+
+    @PostMapping
+    public Book addBook(@RequestBody Book book) {
+        bookList.add(book);
+        return book;
+    }
+
+    @PutMapping("/{id}")
+    public Book updateBook(@PathVariable("id") Long id, @RequestBody Book updatedBook) {
+        for (Book book : bookList) {
+            if (book.getId().equals(id)) {
+                book.setTitle(updatedBook.getTitle());
+                book.setAuthor(updatedBook.getAuthor());
+                book.setPrice(updatedBook.getPrice());
+                book.setIsbn(updatedBook.getIsbn());
+                return book;
+            }
+        }
+        return null;
+    }
+
+    @DeleteMapping("/{id}")
+    public void deleteBook(@PathVariable("id") Long id) {
+        bookList.removeIf(book -> book.getId().equals(id));
+    }
+}
+2.2. Book.java
+java
+
+package com.bookstore.model;
+
+import lombok.Data;
+
+@Data
+public class Book {
+    private Long id;
+    private String title;
+    private String author;
+    private Double price;
+    private String isbn;
+}
+Exercise 3: Handling Path Variables and Query Parameters
+3.1. Add Path Variable Handling
+java
+
+@GetMapping("/{id}")
+public Book getBookById(@PathVariable("id") Long id) {
+    return bookList.stream().filter(book -> book.getId().equals(id)).findFirst().orElse(null);
+}
+3.2. Add Query Parameter Handling
+java
+
+@GetMapping("/search")
+public List<Book> searchBooks(@RequestParam(value = "title", required = false) String title,
+                              @RequestParam(value = "author", required = false) String author) {
+    return bookList.stream()
+            .filter(book -> (title == null || book.getTitle().contains(title)) &&
+                            (author == null || book.getAuthor().contains(author)))
+            .collect(Collectors.toList());
+}
+Exercise 4: Processing Request Body and Form Data
+4.1. Customer Model and Controller
+java
+
+package com.bookstore.model;
+
+import lombok.Data;
+
+@Data
+public class Customer {
+    private Long id;
+    private String name;
+    private String email;
+    private String password;
+}
+java
+
+package com.bookstore.controller;
+
+import com.bookstore.model.Customer;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@RestController
+@RequestMapping("/customers")
+public class CustomerController {
+
+    private List<Customer> customerList = new ArrayList<>();
+
+    @PostMapping
+    public Customer addCustomer(@RequestBody Customer customer) {
+        customerList.add(customer);
+        return customer;
+    }
+
+    @PostMapping("/register")
+    public String registerCustomer(@RequestParam("name") String name,
+                                   @RequestParam("email") String email,
+                                   @RequestParam("password") String password) {
+        Customer customer = new Customer();
+        customer.setName(name);
+        customer.setEmail(email);
+        customer.setPassword(password);
+        customerList.add(customer);
+        return "Customer registered successfully!";
+    }
+}
+Exercise 5: Customizing Response Status and Headers
+java
+
+@PostMapping("/books")
+@ResponseStatus(HttpStatus.CREATED)
+public Book addBook(@RequestBody Book book) {
+    bookList.add(book);
+    return book;
+}
+
+@DeleteMapping("/books/{id}")
+public ResponseEntity<Void> deleteBook(@PathVariable("id") Long id) {
+    bookList.removeIf(book -> book.getId().equals(id));
+    return ResponseEntity.noContent().header("Custom-Header", "Book-Deleted").build();
+}
+Exercise 6: Exception Handling in REST Controllers
+6.1. GlobalExceptionHandler.java
+java
+
+package com.bookstore.exception;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+
+@ControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<String> handleException(Exception e) {
+        return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+}
+Exercise 7: Introduction to Data Transfer Objects (DTOs)
+7.1. BookDTO.java
+java
+
+package com.bookstore.dto;
+
+import lombok.Data;
+
+@Data
+public class BookDTO {
+    private Long id;
+    private String title;
+    private String author;
+    private Double price;
+}
+7.2. Mapping
+java
+
+BookDTO bookDTO = modelMapper.map(book, BookDTO.class);
+Exercise 8: Implementing CRUD Operations
+8.1. Implementing CRUD operations
+Already done in earlier exercises.
+
+Exercise 9: Understanding HATEOAS
+9.1. Adding HATEOAS Links
+java
+
+@GetMapping("/{id}")
+public EntityModel<Book> getBookById(@PathVariable("id") Long id) {
+    Book book = bookList.stream().filter(b -> b.getId().equals(id)).findFirst().orElse(null);
+    return EntityModel.of(book,
+            linkTo(methodOn(BookController.class).getBookById(id)).withSelfRel(),
+            linkTo(methodOn(BookController.class).getAllBooks()).withRel("books"));
+}
+Exercise 10: Configuring Content Negotiation
+10.1. Application Config
+java
+
+package com.bookstore.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.ContentNegotiationConfigurer;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@Configuration
+public class WebConfig implements WebMvcConfigurer {
+
+    @Override
+    public void configureContentNegotiation(ContentNegotiationConfigurer configurer) {
+        configurer.favorPathExtension(true)
+                .favorParameter(true)
+                .parameterName("mediaType")
+                .ignoreAcceptHeader(false)
+                .defaultContentType(MediaType.APPLICATION_JSON)
+                .mediaType("json", MediaType.APPLICATION_JSON)
+                .mediaType("xml", MediaType.APPLICATION_XML);
+    }
+}
+Exercise 11: Integrating Spring Boot Actuator
+11.1. Add Dependency
+xml
+
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-actuator</artifactId>
+</dependency>
+11.2. Expose Actuator Endpoints
+yaml
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+Exercise 12: Securing RESTful Endpoints with Spring Security
+12.1. Security Config
+java
+
+package com.bookstore.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.web.SecurityFilterChain;
+
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http.csrf().disable()
+                .authorizeHttpRequests()
+                .anyRequest().authenticated()
+                .and()
+                .oauth2ResourceServer().jwt();
+        return http.build();
+    }
+}
+Exercise 13: Unit Testing REST Controllers
+13.1. Example Unit Test
+java
+
+package com.bookstore;
+
+import com.bookstore.controller.BookController;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.test.web.servlet.MockMvc;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@WebMvcTest(BookController.class)
+public class BookControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Test
+    public void shouldReturnOkForGetBooks() throws Exception {
+        mockMvc.perform(get("/books"))
+                .andExpect(status().isOk());
+    }
+}
+Exercise 14: Integration Testing for REST Services
+14.1. Example Integration Test
+java
+
+package com.bookstore;
+
+import com.bookstore.model.Book;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+public class BookControllerIntegrationTest {
+
+    @Autowired
+    private TestRestTemplate restTemplate;
+
+    @Test
+    public void shouldReturnBookById() {
+        ResponseEntity<Book> response = restTemplate.getForEntity("/books/1", Book.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+}
+Exercise 15: API Documentation with Swagger
+15.1. Add Swagger Dependency
+xml
+
+<dependency>
+    <groupId>org.springdoc</groupId>
+    <artifactId>springdoc-openapi-ui</artifactId>
+    <version>1.6.12</version>
+</dependency>
+15.2. Access Swagger UI
+After running the application, access the documentation at http://localhost:8080/swagger-ui.html.
+
+
+
+
+
+
+
+
+
+
